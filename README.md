@@ -7,5 +7,7 @@ If you want to modify the source code (e.g., editing the FastAPI backend or the 
 `docker compose -f docker-compose.dev.yml up -d --build`
 
 ## The default credential for sonar-qube 
-admin
-Sonar_Internal_Auth_123!
+
+```text
+Username: admin
+Password: Sonar_Internal_Auth_123!
