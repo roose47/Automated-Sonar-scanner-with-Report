@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Automated SonarQube Scanner</title>
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234facfe"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>' type="image/svg+xml">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 0; }
+        .top-banner { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); color: white; padding: 30px 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-bottom: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .top-banner h1 { margin: 0; font-size: 32px; letter-spacing: 1px; display: flex; align-items: center; gap: 15px; }
+        .top-banner p { margin: 10px 0 0 0; color: #a8b8d0; font-size: 16px; font-family: monospace;}
+        .banner-icon { width: 40px; height: 40px; fill: #4facfe; }
+        .dashboard-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; padding: 0 20px 40px 20px;}
+        @media (max-width: 768px) { .dashboard-container { grid-template-columns: 1fr; } }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); height: fit-content; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; margin: 10px 0 20px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; transition: background-color 0.2s;}
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .action-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .success-btn { background-color: #28a745; margin: 0; }
+        .success-btn:hover { background-color: #218838; }
+        .reset-btn { background-color: #6c757d; margin: 0; }
+        .reset-btn:hover { background-color: #5a6268; }
+        .danger-btn { background-color: #dc3545; margin: 0; }
+        .danger-btn:hover { background-color: #c82333; }
+        #statusArea { margin-top: 20px; padding: 20px; background: #e9ecef; border-radius: 4px; display: none; text-align: center; }
+        
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 2s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px;}
+        .large-spinner { border: 6px solid #f3f3f3; border-top: 6px solid #dc3545; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 20px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .progress-container { width: 100%; background-color: #d1d8e0; border-radius: 6px; margin-top: 15px; overflow: hidden; display: none; height: 20px; }
+        .progress-bar { height: 100%; width: 0%; background-color: #007bff; transition: width 0.5s ease-in-out; background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent); background-size: 1rem 1rem; animation: progress-stripes 1s linear infinite; }
+        @keyframes progress-stripes { from { background-position: 1rem 0; } to { background-position: 0 0; } }
+        .terminal-log { background-color: #1e1e1e; color: #4facfe; font-family: "Courier New", Courier, monospace; font-size: 13px; text-align: left; padding: 15px; border-radius: 6px; margin-top: 15px; height: 120px; overflow-y: auto; display: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); border: 1px solid #333; }
+        .terminal-log p { margin: 4px 0; }
+        .terminal-log .success { color: #28a745; }
+        .terminal-log .error { color: #dc3545; }
+        .history-list { list-style: none; padding: 0; margin: 0; max-height: 500px; overflow-y: auto; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #eee; }
+        .history-item:last-child { border-bottom: none; }
+        .history-item button { width: auto; padding: 8px 15px; margin: 0; font-size: 14px;}
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(3px); }
+        .modal-content { background-color: #fff; margin: 10% auto; padding: 30px; border-radius: 8px; width: 350px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .modal-content h3 { margin-top: 0; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; font-size: 16px;}
+        .modal-actions { display: flex; gap: 10px; }
+        .btn-cancel { background-color: #6c757d; }
+        .btn-cancel:hover { background-color: #5a6268; }
+        
+        /* --- NEW: DELETE OVERLAY --- */
+        #deleteOverlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            color: white;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        #deleteOverlay h2 { margin: 0; font-family: monospace; letter-spacing: 1px;}
+    </style>
+</head>
+<body>
+    <div class="top-banner">
+        <h1>
+            <svg class="banner-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+            </svg>
+            Automated SAST Portal
+        </h1>
+        <p>Containerized Static Analysis & Vulnerability Export</p>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="card">
+            <h2>New Code Scan</h2>
+            <form id="uploadForm">
+                <label>Project Name</label>
+                <input type="text" id="projectName" name="project_name" required pattern="[a-zA-Z0-9_-]+">
+                <label>Project ZIP File:</label>
+                <input type="file" id="zipFile" name="file" accept=".zip" required>
+                <button type="submit" id="submitBtn" disabled style="background-color: #6c757d;">Initializing System... Please wait</button>
+            </form>
+
+            <div id="statusArea">
+                <div style="margin-bottom: 10px;">
+                    <div class="spinner" id="spinner"></div>
+                    <span id="statusText" style="font-weight: bold;">Uploading...</span>
+                </div>
+                
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                
+                <div class="terminal-log" id="terminalLog"></div>
+                
+                <button id="abortBtn" class="danger-btn" style="margin-top: 15px; display: none;" onclick="abortScan()">🛑 Abort Scan</button>
+
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button id="downloadBtn" class="success-btn" onclick="openExportModal(currentProject)">Download Security CSV</button>
+                    <button class="reset-btn" onclick="window.location.reload()">Scan Another Project</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Past Scans</h2>
+            <p style="font-size: 14px; color: #666; margin-top: 0;">Click to download historical CSV reports or delete records.</p>
+            <ul id="projectList" class="history-list">
+                <li><div class="spinner"></div> Loading history...</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Select Columns to Export</h3>
+            
+            <div id="modalConfig">
+                <div class="checkbox-group" id="columnCheckboxes">
+                    <label><input type="checkbox" value="Vulnerability Name" checked> Vulnerability Name</label>
+                    <label><input type="checkbox" value="Severity" checked> Severity</label>
+                    <label><input type="checkbox" value="Project Name" checked> Project Name</label>
+                    <label><input type="checkbox" value="Context" checked> Context</label>
+                    <label><input type="checkbox" value="Full Path" checked> Full Path</label>
+                    <label><input type="checkbox" value="File" checked> File Name</label>
+                    <label><input type="checkbox" value="Line" checked> Line Number</label>
+                </div>
+                <div class="modal-actions">
+                    <button onclick="executePrepare()">Prepare Report</button>
+                    <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                </div>
+            </div>
+
+            <div id="modalLoading" style="display: none; text-align: center; margin: 30px 0;">
+                <div class="spinner" style="border-top: 4px solid #007bff; width: 30px; height: 30px;"></div>
+                <p style="margin-top: 15px; color: #555;">Compiling data from SonarQube...</p>
+            </div>
+
+            <div id="modalReady" style="display: none; text-align: center; margin: 20px 0;">
+                <h2 style="color: #28a745; margin-bottom: 5px;">Report Ready!</h2>
+                <p id="reportSizeText" style="color: #666; font-family: monospace; font-size: 16px;">Size: 0 MB</p>
+                <a id="finalDownloadLink" href="#" download style="text-decoration: none;">
+                    <button class="success-btn" style="width: 100%; margin-top: 15px;">Download CSV File</button>
+                </a>
+                <button class="btn-cancel" style="margin-top: 10px; width: 100%;" onclick="closeModal()">Close</button>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="deleteOverlay">
+        <div class="large-spinner"></div>
+        <h2>Purging Project from Database...</h2>
+        <p style="color: #ccc;">This may take a few moments for large codebases.</p>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const statusArea = document.getElementById('statusArea');
+        const statusText = document.getElementById('statusText');
+        const spinner = document.getElementById('spinner');
+        const actionButtons = document.getElementById('actionButtons');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const abortBtn = document.getElementById('abortBtn');
+        
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const terminalLog = document.getElementById('terminalLog');
+        const deleteOverlay = document.getElementById('deleteOverlay'); // NEW
+        
+        let currentProject = "";
+        let projectToDownload = "";
+        let lastReportedStatus = "";
+        let pollingInterval;
+
+        window.onload = checkSystemReady;
+
+        async function checkSystemReady() {
+            try {
+                const response = await fetch('/system/status');
+                const data = await response.json();
+                if (data.ready) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "Start Security Scan";
+                    submitBtn.style.backgroundColor = "#007bff";
+                    fetchProjectHistory();
+                } else {
+                    setTimeout(checkSystemReady, 3000);
+                }
+            } catch (e) {
+                setTimeout(checkSystemReady, 3000);
+            }
+        }
+
+        async function fetchProjectHistory() {
+            const list = document.getElementById('projectList');
+            try {
+                const response = await fetch('/projects');
+                const data = await response.json();
+                
+                if (data.projects && data.projects.length > 0) {
+                    list.innerHTML = ''; 
+                    const currentHost = window.location.hostname;
+                    
+                    data.projects.forEach(p => {
+                        const li = document.createElement('li');
+                        li.className = 'history-item';
+                        
+                        li.innerHTML = `
+                            <a href="http://${currentHost}:9000/dashboard?id=${p.key}" target="_blank" style="font-family: monospace; font-size: 16px; color: #007bff; text-decoration: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <strong>${p.name}</strong>
+                            </a>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="success-btn" onclick="openExportModal('${p.key}')">Download</button>
+                                <button class="danger-btn" onclick="deleteProject('${p.key}')">Delete</button>
+                            </div>
+                        `;
+                        list.appendChild(li);
+                    });
+                } else {
+                    list.innerHTML = '<li style="color: #666;">No past scans found in SonarQube.</li>';
+                }
+            } catch (e) {
+                list.innerHTML = '<li style="color: red;">Error loading history.</li>';
+            }
+        }
+
+        function appendToTerminal(message, cssClass = "") {
+            const p = document.createElement('p');
+            p.innerText = `> ${message}`;
+            if (cssClass) p.className = cssClass;
+            terminalLog.appendChild(p);
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            currentProject = document.getElementById('projectName').value.trim().replace(/ /g, '-');
+            const formData = new FormData();
+            formData.append('project_name', currentProject);
+            formData.append('file', document.getElementById('zipFile').files[0]);
+
+            form.style.display = 'none';
+            statusArea.style.display = 'block';
+            actionButtons.style.display = 'none';
+            abortBtn.style.display = 'block'; 
+            spinner.style.display = 'inline-block';
+            
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '5%';
+            progressBar.style.backgroundColor = '#007bff';
+            statusText.style.color = "#333";
+            statusText.innerText = "Processing...";
+            
+            terminalLog.style.display = 'block';
+            terminalLog.innerHTML = '';
+            lastReportedStatus = "Uploading to portal...";
+            appendToTerminal(lastReportedStatus);
+
+            await fetch('/scan', { method: 'POST', body: formData });
+            pollStatus();
+        });
+
+        async function abortScan() {
+            if(!confirm("Are you sure you want to abort this scan?")) return;
+            abortBtn.disabled = true;
+            abortBtn.innerText = "Aborting...";
+            await fetch(`/scan/abort/${currentProject}`, { method: 'POST' });
+        }
+
+        // NEW: Upgraded Delete Function with Loading Overlay
+        async function deleteProject(projectKey) {
+            if(!confirm(`Warning: This will permanently delete '${projectKey}' from SonarQube. Continue?`)) return;
+            
+            // Lock the screen and show the spinner
+            deleteOverlay.style.display = 'flex';
+            
+            try {
+                await fetch(`/projects/${projectKey}`, { method: 'DELETE' });
+            } catch (e) {
+                console.error("Deletion failed", e);
+                alert("Failed to reach the server. Please try again.");
+            } finally {
+                // Unlock the screen and refresh the list
+                deleteOverlay.style.display = 'none';
+                fetchProjectHistory(); 
+            }
+        }
+
+        async function pollStatus() {
+            pollingInterval = setInterval(async () => {
+                const response = await fetch(`/status/${currentProject}`);
+                const data = await response.json();
+                
+                if (data.progress !== undefined && data.progress >= 0) {
+                    progressBar.style.width = data.progress + '%';
+                }
+
+                if (data.status && data.status !== lastReportedStatus && data.status !== "Unknown") {
+                    lastReportedStatus = data.status;
+                    appendToTerminal(data.status);
+                }
+
+                if (data.status === "Complete") {
+                    clearInterval(pollingInterval);
+                    abortBtn.style.display = 'none';
+                    progressBar.style.width = '100%';
+                    progressBar.style.backgroundColor = '#28a745'; 
+                    spinner.style.display = 'none'; 
+                    statusText.innerText = "Scan Complete!";
+                    statusText.style.color = "#28a745";
+                    appendToTerminal("Vulnerability report generated successfully.", "success");
+                    
+                    setTimeout(() => {
+                        actionButtons.style.display = 'flex'; 
+                        fetchProjectHistory(); 
+                    }, 500);
+
+                } else if (data.status.includes("aborted")) {
+                    clearInterval(pollingInterval);
+                    abortBtn.style.display = 'none';
+                    progressBar.style.backgroundColor = '#dc3545'; 
+                    spinner.style.display = 'none';
+                    statusText.innerHTML = `<span style="color:#dc3545;">Scan Aborted</span>`;
+                    appendToTerminal("Process killed by user.", "error");
+                    
+                    actionButtons.style.display = 'flex';
+                    downloadBtn.style.display = 'none';
+
+                } else if (data.status.includes("Error")) {
+                    clearInterval(pollingInterval);
+                    abortBtn.style.display = 'none';
+                    progressBar.style.backgroundColor = '#dc3545'; 
+                    spinner.style.display = 'none';
+                    statusText.innerHTML = `<span style="color:red;">Scan Failed</span>`;
+                    appendToTerminal(data.status, "error");
+                    
+                    actionButtons.style.display = 'flex';
+                    downloadBtn.style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        function openExportModal(projectKey) {
+            projectToDownload = projectKey;
+            
+            // Reset modal to default config state every time it opens
+            document.getElementById('modalTitle').innerText = "Select Columns to Export";
+            document.getElementById('modalConfig').style.display = 'block';
+            document.getElementById('modalLoading').style.display = 'none';
+            document.getElementById('modalReady').style.display = 'none';
+            
+            document.getElementById('exportModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('exportModal').style.display = 'none';
+        }
+
+        async function executePrepare() {
+            const checkboxes = document.querySelectorAll('#columnCheckboxes input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert("Please select at least one column to export.");
+                return;
+            }
+            const selectedCols = Array.from(checkboxes).map(cb => cb.value).join(',');
+            
+            // Switch UI to loading state
+            document.getElementById('modalTitle').innerText = "Generating Report";
+            document.getElementById('modalConfig').style.display = 'none';
+            document.getElementById('modalLoading').style.display = 'block';
+
+            try {
+                // Tell Python to build and save the CSV
+                const response = await fetch(`/prepare_report/${projectToDownload}?cols=${encodeURIComponent(selectedCols)}`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === "ready") {
+                    // Switch UI to ready state
+                    document.getElementById('modalTitle').innerText = "Success";
+                    document.getElementById('modalLoading').style.display = 'none';
+                    document.getElementById('modalReady').style.display = 'block';
+                    
+                    // Display size and set the download link
+                    document.getElementById('reportSizeText').innerText = `File Size: ${data.size}`;
+                    document.getElementById('finalDownloadLink').href = `/download_report/${projectToDownload}`;
+                } else {
+                    alert("Failed to compile report.");
+                    closeModal();
+                }
+            } catch (e) {
+                alert("Server error while preparing report.");
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Ignore local scan data and databases
+scan_data/
+scans/
+postgres_data/
+sonarqube_data/
+sonarqube_extensions/
+sonarqube_logs/
+
+# Ignore Python caches
+__pycache__/
+*.pyc
+
+# Ignore OS files
+.DS_Store
