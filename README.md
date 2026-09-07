@@ -1,3 +1,4 @@
+Built while working as a Information Security Consultant at qSEAp Infotech to streamline source-code scanning
 ## 🚀 Quick Start (Plug-and-Play)
 To instantly download and run the pre-built application from Docker Hub:
 `docker compose up -d`
